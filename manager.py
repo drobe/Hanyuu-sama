@@ -15,6 +15,7 @@ import datetime
 import requests
 import requests_ # really now?
 import pushnotify # v0.5.1
+from collections import defaultdict
 
 bootstrap.logging_setup()
         
@@ -804,7 +805,7 @@ class Song(object):
                             cur.execute("UPDATE `tracks` SET `priority`=\
                             priority+2 WHERE `id`=%s;", (self.song.id,))
             def api_keys(self):
-                keys_dict = {}
+                keys_dict = defaultdict(dict)
                 with manager.MySQLCursor as cur:
                     cur.execute("SELECT enick.apikey, enick.type FROM esong JOIN efave ON "
                             "efave.isong = esong.id JOIN enick ON efave.inick = "
@@ -815,6 +816,9 @@ class Song(object):
                         return {}
                     for row in cur:
                         keys_dict[row['type']].update({row['apikey'] : []})
+                        # really annoying dict required due to bloody pushover.
+                        # pushover uses device IDs as well as API keys.
+                        # { "key_here" : ["device1", "device2"]}
                 return keys_dict
             def __iter__(self):
                 """Returns an iterator over the favorite list, sorted 

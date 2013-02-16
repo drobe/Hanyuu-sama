@@ -99,7 +99,7 @@ def verify_key(key_type, key):
         if pushnotify.prowl.Client(config.prowl_key).verify_user(key):
             return 2
     elif key_type == u"pushover":
-        if pushnotify.prowl.Client(config.pushover_key).verify_user(key):
+        if pushnotify.pushover.Client(config.pushover_key).verify_user(key):
             return 3
     return None
  
