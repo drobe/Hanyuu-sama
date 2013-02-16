@@ -1268,6 +1268,8 @@ def send_push_notification(keys, metadata, key_type):
   try:
     client.apikeys = keys
     client.notify(metadata, "One of your faves is now playing on R/a/dio", kwargs={"url" : "http://www.r-a-d.io"})
+  except pushnotify.exceptions.PermissionDenied:
+    logging.exception("pushnotify - Key: {0}".format(key_type))
   except pushnotify.exceptions.PushNotifyError:
     logging.warning("Something went wrong and I can't be bothered to go fix it.")
 
