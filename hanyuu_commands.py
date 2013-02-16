@@ -53,6 +53,7 @@ import random as _random
 from datetime import timedelta, datetime
 import bootstrap
 import requests_
+import pushnotify # v0.5.1
 
 def tokenize(text):
     return text.lower().split(" ")
@@ -82,6 +83,47 @@ def np(server, nick, channel, text, hostmask):
     server.privmsg(channel, message)
     
 np.handler = ("on_text", r'[.!@]np$', irc.ALL_NICKS, irc.ALL_CHANNELS)
+
+# Basic Sanitising on keys.
+def check_key(key):
+    if re.match(r"\W", key):
+        return False
+    return True
+
+# Verify key is valid
+def verify_key(key_type, key):
+    if key_type == u"nma":
+        if pushnotify.nma.Client().verify_user(key):
+            return 1
+    elif key_type == u"prowl":
+        if pushnotify.prowl.Client(config.prowl_key).verify_user(key):
+            return 2
+    elif key_type == u"pushover":
+        if pushnotify.prowl.Client(config.pushover_key).verify_user(key):
+            return 3
+    return None
+ 
+def register_fave_key(server, nick, channel, text, hostmask):
+    text = tokenize(text)
+    if len(text) >= 4:
+        key = text[2]
+        key_type = text[3]
+        if check_key(key):
+            verify = verify_key(key_type.lower(), key)
+            if verify:
+                with manager.MySQLCursor as cur:
+                  cur.execute("INSERT INTO enick (nick, apikey, type) VALUES (%(nick)s, %(apikey)s, %(type_)s) "
+                        "ON DUPLICATE KEY UPDATE apikey=%(apikey)s, type=%(type_)s", { nick : nick, apikey: key, 
+                        type_ : verify })
+            else:
+                server.privmsg(nick, u"Invalid key type or invalid key. Valid types are nma, pushover, or prowl. Keys are case sensitive.")
+        else:
+            server.privmsg(nick, u"Keys must be alphanumeric.")
+     else:
+        server.privmsg(nick, u"Syntax: REGISTER KEY <key> <nma|prowl|pushover>. (e.g. REGISTER KEY abcdef1234567890 nma)")
+        return
+
+register_fave_key.handler = ("on_text", r'REGISTER KEY', irc.ALL_NICKS, irc.PRIVATE_MESSAGE)
 
 def create_faves_code(server, nick, channel, text, hostmask):
     with manager.MySQLCursor() as cur:
@@ -309,6 +351,7 @@ shut_afk.handler = ("on_text", r'[.!@]cleankill',
 spam = bootstrap.Switch(True) # side effect: hanyuu no longer spams as ferociously if that pesky race condition returns
 def announce(server, spam=spam):
     np = manager.NP()
+    apikeys = np.faves.apikeys()
     status = manager.Status()
     if not spam: # No more requiring a fave for a now starting announce. (Hiroto)
         message = u"Now starting:{c4} '{np}' {c}[{length}]({listeners} listeners), {faves} fave{fs}, played {times} time{ts}, {c3}LP:{c} {lp}".format(
@@ -321,6 +364,8 @@ def announce(server, spam=spam):
             **irc_colours)
         server.privmsg("#r/a/dio", message)
         spam.reset()
+        for key_type, keys in apikeys.iteritems():
+            send_push_notification(keys, np.metadata, key_type)
     for nick in np.faves:
         if (server.inchannel("#r/a/dio", nick)):
             server.notice(nick, u"Fave: {0} is playing."\

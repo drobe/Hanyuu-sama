@@ -14,6 +14,7 @@ from bootstrap import Switch
 import datetime
 import requests
 import requests_ # really now?
+import pushnotify # v0.5.1
 
 bootstrap.logging_setup()
         
@@ -802,6 +803,19 @@ class Song(object):
                         if (self.song.id != 0L):
                             cur.execute("UPDATE `tracks` SET `priority`=\
                             priority+2 WHERE `id`=%s;", (self.song.id,))
+            def api_keys(self):
+                keys_dict = {}
+                with manager.MySQLCursor as cur:
+                    cur.execute("SELECT enick.apikey, enick.type FROM esong JOIN efave ON "
+                            "efave.isong = esong.id JOIN enick ON efave.inick = "
+                            "enick.id WHERE esong.hash = %s AND "
+                            "enick.apikey IS NOT NULL ORDER BY enick.nick ASC",
+                            (self.song.digest,))
+                    if cur.rowcount == 0:
+                        return {}
+                    for row in cur:
+                        keys_dict[row['type']].update({row['apikey'] : []})
+                return keys_dict
             def __iter__(self):
                 """Returns an iterator over the favorite list, sorted 
                 alphabetical. Use list(faves) to generate a list copy of the
@@ -1224,3 +1238,33 @@ def parse_lastplayed(seconds):
         return " ".join(result)
     else:
         return u'Never before'
+
+def send_push_notification(keys, metadata, key_type):
+  """
+  Example:
+  faves.keys = {
+    1 : {api_key: []},
+    2 : {api_key: []},
+    3 : {api_key: []},
+  }
+  for key_type, key_list in faves.keys:
+    send_push_notification(key_list, metadata, key_type) 
+  """
+  if not keys:
+    return
+  if key_type == 1:
+    client = pushnotify.nma.Client(application=config.app_name)
+  elif key_type == 2:
+    client = pushnotify.prowl.Client(config.prowl_key, config.app_name)
+  elif key_type == 3:
+    client = pushnotify.pushover.Client(config.pushover_key)
+  else:
+    logging.warning("Unknown Key Type Used. Check the Database...")
+    return
+  try:
+    client.apikeys = keys
+    client.notify(metadata, "One of your faves is now playing on R/a/dio", kwargs={"url" : "http://www.r-a-d.io"})
+  except pushnotify.exceptions.PushNotifyError:
+    logging.warning("Something went wrong and I can't be bothered to go fix it.")
+
+    
