@@ -31,7 +31,30 @@ python setup.py install
 
 This will install all the required dependencies that we added to `setup.py` so far. The currently missing dependency is `pylibshout` which will be resolved soon.
 
-**NOTE:** Right now the 1.3 branch is in no runable state. Don't try it's a wasted effort.
+**NOTE:** Running `setup.py` requires [`setuptools`][setuptools]. You may also discover that `setup.py` chokes when searching for `README`. Simply rename this document to `README` (from `README.md`) to bypass the error.
+
+**Windows Users:** The whole process is a bit of a chore, but we'll provide a walkthrough that might get you through the process.
+
+You might receive an error about `vcvarsall.bat`. The `audiotools` package used by Hanyuu needs to be compiled, which you'll need a C compiler for.
+You can use the [minGW][minGW] compiler, but if you insist on using Visual Studio then you're on your own. 
+
+You're going to need to modify your `PATH` variable to point to MinGW. You can follow these instructions: http://www.nerdydork.com/update-windows-path-without-rebooting.html , remembering to assign your minGW/bin directory in the `PATH` variable (typically c:\MinGW\bin).
+
+You will then need to properly configure distutils to use MinGW. Go to your [PYTHON PATH]/Lib/distutils and either create or edit a file called `distutils.cfg` so that it contains this text:
+```
+[build]
+compiler=mingw32
+```
+Additionally, if you've installed the lastest version of MinGW, you might get an error that mentions GCC and -mno-cygwin.
+You will need to edit the `cygwincompiler.py` file in your `[PYTHON PATH]/Lib/distutils` so that all instances of "-mno-cygwin" are deleted.
+A simple Replace: "-mno-cygwin" with "" will suffice. Make sure you make a backup, just in case.
+
+Finally, use this command line to run `setup.py`
+```
+setup.py install build --compiler=mingw32
+```
+
+**NOTE:** Right now the 1.3 branch is in no runable state. Don't try, it's a wasted effort.
 
 # Helping out
 
@@ -163,6 +186,8 @@ Thus using any of the classes currently finished is encouraged, if you come acro
 [peewee]: https://github.com/coleifer/peewee
 [hanyuu]: https://hanyuu-sama.readthedocs.org/en/latest/
 [readthedocs]: https://readthedocs.org/
+[setuptools]: https://pypi.python.org/pypi/setuptools
+[minGW]: http://sourceforge.net/projects/mingw/files/Installer/mingw-get-inst/
 
 [sphinx]: http://sphinx-doc.org/
 [sphinx.autodoc]: http://sphinx-doc.org/ext/autodoc.html#module-sphinx.ext.autodoc
